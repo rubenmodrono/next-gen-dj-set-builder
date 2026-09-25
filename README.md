@@ -1,4 +1,4 @@
-# rekordbox-setbuilder — Next-Gen DJ SetBuilder
+# Next-Gen DJ SetBuilder
 
 > A DJ set is not a list of good tracks: it is a curve. This app builds it.
 
