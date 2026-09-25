@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.streamlit/secrets.toml
+.DS_Store
+/.idea/
+/.claude/
+/.agents/
+CLAUDE.md

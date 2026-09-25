@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rekordbox-setbuilder"
+version = "0.2.0"
+description = "Un set no es una lista de buenos temas: es una curva. Esta app la construye."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "langgraph>=0.2",
+]
+
+[project.optional-dependencies]
+web = ["streamlit>=1.45", "pandas>=2.2", "altair>=5"]
+rekordbox = ["pyrekordbox>=0.4"]
+spotify = ["spotipy>=2.24"]
+lastfm = ["requests>=2.31"]
+agent = ["anthropic>=0.40"]
+all = ["rekordbox-setbuilder[web,rekordbox,spotify,lastfm,agent]"]
+dev = ["rekordbox-setbuilder[web]", "pytest>=8.0", "mypy>=1.10"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src", "src.*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pyrekordbox", "pyrekordbox.*",
+    "spotipy", "spotipy.*",
+    "pandas", "pandas.*",
+    "altair", "altair.*",
+    "anthropic", "anthropic.*",
+    "requests", "requests.*",
+]
+ignore_missing_imports = true

@@ -1,0 +1,9 @@
+# Instalación rápida: python -m pip install -r requirements.txt
+pydantic>=2.6
+langgraph>=0.2
+streamlit>=1.45
+pandas>=2.2
+altair>=5
+# Opcionales:
+pyrekordbox>=0.4   # leer la BD local de Rekordbox 6
+spotipy>=2.24      # enriquecimiento con Spotify (solo apps antiguas)
