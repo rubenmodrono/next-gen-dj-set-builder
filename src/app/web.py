@@ -22,6 +22,7 @@ import altair as alt
 import streamlit as st
 
 from src.app.presenters import curve_frames, phase_label, set_table
+from src.app.theme import camelot_ribbon, inject_css
 from src.core.genres import DEFAULT_BPM_RANGE, genre_bpm_range, known_genres
 from src.core.models import (
     EnergyCurveProfile,
@@ -609,6 +610,8 @@ def results(state: SetGraphState, report: EnrichmentReport | SuggestionReport | 
         st.altair_chart(bpm_chart(state), width="stretch")
     with tab_table:
         table = set_table(selected, slots, transitions, proposal)
+        st.markdown('<div class="nr-ribbon-title">Ruta armónica</div>', unsafe_allow_html=True)
+        st.markdown(camelot_ribbon([t.key for t in selected]), unsafe_allow_html=True)
         st.dataframe(
             table,
             hide_index=True,
@@ -680,8 +683,12 @@ def downloads(
 # --------------------------------------------------------------------------- #
 def main() -> None:
     st.set_page_config(page_title="Next-Gen DJ SetBuilder", page_icon="🎧", layout="wide")
-    st.title("🎧 Next-Gen DJ SetBuilder")
-    st.caption("Un set no es una lista de buenos temas: es una curva. Esta app la construye.")
+    inject_css()
+    st.markdown(
+        '<div class="nr-hero"><h1>🎧 Next-Gen DJ SetBuilder</h1>'
+        '<div class="tag">Un set no es una lista de buenos temas: es una curva. Esta app la construye.</div></div>',
+        unsafe_allow_html=True,
+    )
 
     mode, loaded = sidebar_source()
     pool = sidebar_playlist(loaded)
