@@ -307,6 +307,7 @@ export function AdvancedPanel(props: {
   onMaxPerArtist: (v: string) => void;
   proxyUrl: string;
   onProxy: (v: string) => void;
+  builtinProxy: boolean;
   llm: LlmSettings;
   onLlm: (l: LlmSettings) => void;
   remember: boolean;
@@ -320,8 +321,12 @@ export function AdvancedPanel(props: {
       </Field>
       <fieldset className="seg-set">
         <legend>Lista de Beatport (uso personal)</legend>
-        <p className="msg hint">Un navegador no puede leer Beatport directamente. Necesitas tu propio proxy (ver README) y revisar los términos de uso de Beatport.</p>
-        <Field id="adv-proxy" label="Dirección de tu proxy" hint="Por ejemplo https://beatport-proxy.tu-cuenta.workers.dev">
+        <p className="msg hint">
+          {props.builtinProxy
+            ? 'Esta web incluye su propio lector de Beatport: no tienes que configurar nada. Revisa los términos de uso de Beatport.'
+            : 'Un navegador no puede leer Beatport directamente. Necesitas tu propio proxy (ver README) y revisar los términos de uso de Beatport.'}
+        </p>
+        <Field id="adv-proxy" label={props.builtinProxy ? 'Proxy propio (opcional)' : 'Dirección de tu proxy'} hint="Por ejemplo https://beatport-proxy.tu-cuenta.workers.dev">
           {(a) => <input id={a.id} aria-describedby={a.describedBy} type="url" inputMode="url" autoCapitalize="off" value={props.proxyUrl} onChange={(e) => props.onProxy(e.target.value)} />}
         </Field>
         <Segmented

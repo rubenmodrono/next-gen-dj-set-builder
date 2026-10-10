@@ -7,6 +7,7 @@ import { defaultSegments, chartUrl, GENRES } from '../data/genres';
 import { demoLibrary } from '../library/demo';
 import { decodeText, parseLibraryText } from '../library/parse';
 import { clearLibrary, loadLibrary, saveLibrary, type StoredLibrary } from '../library/store';
+import { probeBuiltinProxy } from '../sources/beatport';
 import { loadChart } from '../sources/chart';
 import { DEFAULT_LLM, type LlmSettings } from '../sources/llm';
 import { genreForLibrary, HARM, libraryGenres, read, segmentError, toInputs, toSegments, write, type SegInput } from '../state';
@@ -64,6 +65,7 @@ export default function App(): React.JSX.Element {
   const [pinned, setPinned] = useState<PinnedItem[]>([]);
   const [maxPerArtist, setMaxPerArtist] = useState('2');
   const [proxyUrl, setProxyUrl] = useState(read('sp-proxy') ?? '');
+  const [builtinProxy, setBuiltinProxy] = useState(false);
   const initial = useMemo(loadLlm, []);
   const [llm, setLlm] = useState<LlmSettings>(initial.llm);
   const [remember, setRemember] = useState(initial.remember);
@@ -104,6 +106,11 @@ export default function App(): React.JSX.Element {
   useEffect(() => { write('sp-duration', duration); }, [duration]);
   useEffect(() => { write('sp-harm', strictness); }, [strictness]);
   useEffect(() => { write('sp-proxy', proxyUrl); }, [proxyUrl]);
+  useEffect(() => {
+    const ctl = new AbortController();
+    void probeBuiltinProxy(ctl.signal).then(setBuiltinProxy);
+    return () => ctl.abort();
+  }, []);
   useEffect(() => {
     const json = JSON.stringify(llm);
     try {
@@ -322,8 +329,8 @@ export default function App(): React.JSX.Element {
                       </select>
                     )}
                   </Field>
-                  {!proxyUrl.trim() && llm.provider === 'none' && (
-                    <p className="msg warn">Esta versión web necesita tu propio proxy para leer Beatport. Configúralo en «Avanzado» o usa tu biblioteca.</p>
+                  {!proxyUrl.trim() && !builtinProxy && llm.provider === 'none' && (
+                    <p className="msg warn">Esta web no incluye el lector de Beatport (solo en Cloudflare Pages). Configura tu propio proxy en «Avanzado» o usa tu biblioteca.</p>
                   )}
                 </>
               )}
@@ -359,7 +366,7 @@ export default function App(): React.JSX.Element {
 
             <Fold title="Avanzado">
               <AdvancedPanel
-                maxPerArtist={maxPerArtist} onMaxPerArtist={setMaxPerArtist} proxyUrl={proxyUrl} onProxy={setProxyUrl}
+                maxPerArtist={maxPerArtist} onMaxPerArtist={setMaxPerArtist} proxyUrl={proxyUrl} onProxy={setProxyUrl} builtinProxy={builtinProxy}
                 llm={llm} onLlm={setLlm} remember={remember} onRemember={setRemember}
               />
             </Fold>

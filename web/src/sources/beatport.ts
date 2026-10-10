@@ -1,16 +1,36 @@
 import type { RawTrack } from '../core/types';
 
+/** Dirección del lector integrado (Cloudflare Pages Functions, ver functions/beatport.js), relativa a la página. */
+export const BUILTIN_PROXY = 'beatport';
+
 /**
- * Browsers cannot read beatport.com directly (no CORS headers), so the page is fetched through a proxy
- * the user runs themselves (see worker/beatport-proxy.js). The proxy receives the target as ?url=...
+ * Browsers cannot read beatport.com directly (no CORS headers), so the page is fetched through a proxy:
+ * the built-in same-origin function when the site runs on Cloudflare Pages, or the user's own proxy
+ * (see worker/beatport-proxy.js). The proxy receives the target as ?url=...
  */
-export async function fetchHtml(url: string, proxyUrl: string, signal?: AbortSignal): Promise<string> {
-  if (!proxyUrl.trim()) {
-    throw new Error('El navegador no puede leer Beatport directamente. Configura tu propio proxy en Avanzado, o usa tu biblioteca.');
+export function proxyRequestUrl(url: string, proxyUrl: string): string {
+  const base = proxyUrl.trim() || BUILTIN_PROXY;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}url=${encodeURIComponent(url)}`;
+}
+
+/** True when this site ships the built-in reader (the function answers the probe with an X-SP-Proxy header). */
+export async function probeBuiltinProxy(signal?: AbortSignal): Promise<boolean> {
+  try {
+    const res = await fetch(`${BUILTIN_PROXY}?probe=1`, { signal });
+    return res.headers.get('x-sp-proxy') === '1';
+  } catch {
+    return false;
   }
-  const sep = proxyUrl.includes('?') ? '&' : '?';
-  const res = await fetch(`${proxyUrl}${sep}url=${encodeURIComponent(url)}`, { signal });
-  if (!res.ok) throw new Error(`El proxy respondió con el código ${res.status}.`);
+}
+
+export async function fetchHtml(url: string, proxyUrl: string, signal?: AbortSignal): Promise<string> {
+  const custom = proxyUrl.trim() !== '';
+  const res = await fetch(proxyRequestUrl(url, proxyUrl), { signal });
+  if (!custom && res.headers.get('x-sp-proxy') !== '1') {
+    throw new Error('Esta web no incluye el lector de Beatport. Despliégala en Cloudflare Pages, configura tu propio proxy en Avanzado o usa tu biblioteca.');
+  }
+  if (!res.ok) throw new Error(`El lector de Beatport respondió con el código ${res.status}.`);
   return res.text();
 }
 

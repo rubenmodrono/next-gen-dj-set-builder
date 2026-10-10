@@ -40,7 +40,8 @@ src/sources/   Beatport (vía proxy propio), LLM opcional, previews
 src/ui/        React: App, paneles, resultado, rueda, curva
 src/styles.css tokens de 3 estilos × 2 modos
 tests/         pruebas del motor
-worker/        proxy opcional para Beatport (Cloudflare Worker)
+functions/     lector de Beatport integrado (Cloudflare Pages Functions)
+worker/        proxy opcional para Beatport (Cloudflare Worker propio)
 ```
 
 ## Cómo exportar tu biblioteca
@@ -72,13 +73,13 @@ GitHub Pages no permite cabeceras propias. La política CSP se inserta como `<me
 
 ## Beatport (opcional)
 
-Los navegadores bloquean Beatport por CORS. Si quieres cargar listas de Beatport, despliega tu propio proxy:
+Los navegadores bloquean Beatport por CORS, así que la lectura pasa siempre por un servidor.
 
-1. Crea un Worker en Cloudflare con `worker/beatport-proxy.js`.
-2. Define `ALLOWED_ORIGIN` con la URL de tu web.
-3. Pega la URL del Worker en *Avanzado > Proxy*.
+- **En Cloudflare Pages no tienes que configurar nada.** La carpeta `functions/` se despliega con la web y `functions/beatport.js` queda en la misma dirección (`/beatport`). Solo lee listas top-100 de género, solo responde a peticiones de tu propia web y guarda cada lista una hora en caché.
+- **En GitHub Pages** (que solo sirve archivos estáticos) esa función no existe. Despliega `worker/beatport-proxy.js` como Worker propio, define `ALLOWED_ORIGIN` con la URL de tu web y pega su dirección en *Avanzado > Proxy propio*.
+- Sin ninguna de las dos opciones, la app funciona con tu biblioteca.
 
-El proxy solo admite URLs de tops. Sin proxy, la app funciona con tu biblioteca.
+Es para uso personal. Revisa los términos de uso de Beatport antes de abrir la web al público.
 
 ## Privacidad y seguridad
 
