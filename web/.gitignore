@@ -2,3 +2,6 @@ node_modules
 dist
 dist-single
 *.log
+.dev.vars
+.env
+.env.*

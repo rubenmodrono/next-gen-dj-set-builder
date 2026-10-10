@@ -40,7 +40,7 @@ src/sources/   Beatport (vía proxy propio), LLM opcional, previews
 src/ui/        React: App, paneles, resultado, rueda, curva
 src/styles.css tokens de 3 estilos × 2 modos
 tests/         pruebas del motor
-functions/     lector de Beatport integrado (Cloudflare Pages Functions)
+functions/     lectores integrados de Beatport y Tidal (Cloudflare Pages Functions)
 worker/        proxy opcional para Beatport (Cloudflare Worker propio)
 ```
 
@@ -80,6 +80,21 @@ Los navegadores bloquean Beatport por CORS, así que la lectura pasa siempre por
 - Sin ninguna de las dos opciones, la app funciona con tu biblioteca.
 
 Es para uso personal. Revisa los términos de uso de Beatport antes de abrir la web al público.
+
+## Tidal (opcional, recomendado)
+
+Tidal publica BPM y tonalidad de cada tema en su API, así que no hace falta Beatport para tener datos de mezcla.
+
+1. Registra una aplicación en `developer.tidal.com` y copia el *Client ID* y el *Client Secret*.
+2. En Cloudflare, abre tu proyecto de Pages y entra en **Settings > Variables and Secrets**. Crea:
+   - `TIDAL_CLIENT_ID` (texto)
+   - `TIDAL_CLIENT_SECRET` (tipo **Secret**)
+   - `TIDAL_COUNTRY` (opcional, por defecto `ES`)
+3. Haz un nuevo despliegue. La opción **Tidal** aparece sola en *Fuente de temas*.
+
+El secreto solo vive en Cloudflare: la función `functions/tidal.js` pide el token y consulta el catálogo, y el navegador nunca lo ve. Las credenciales no deben escribirse en el repositorio.
+
+Para diagnosticar, abre `https://TU-WEB/tidal?q=progressive%20house` en el navegador: devuelve la respuesta cruda de Tidal.
 
 ## Privacidad y seguridad
 

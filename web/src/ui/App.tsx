@@ -8,6 +8,7 @@ import { demoLibrary } from '../library/demo';
 import { decodeText, parseLibraryText } from '../library/parse';
 import { clearLibrary, loadLibrary, saveLibrary, type StoredLibrary } from '../library/store';
 import { probeBuiltinProxy } from '../sources/beatport';
+import { loadTidalPool, probeTidal } from '../sources/tidal';
 import { loadChart } from '../sources/chart';
 import { DEFAULT_LLM, type LlmSettings } from '../sources/llm';
 import { genreForLibrary, HARM, libraryGenres, read, segmentError, toInputs, toSegments, write, type SegInput } from '../state';
@@ -18,7 +19,7 @@ import { usePreview } from './usePreview';
 
 type StyleId = 'console' | 'editorial' | 'wheel';
 type Mode = 'light' | 'dark';
-type Source = 'library' | 'beatport';
+type Source = 'library' | 'beatport' | 'tidal';
 
 const STYLES = [
   { value: 'wheel', label: 'Rueda' },
@@ -52,7 +53,7 @@ export default function App(): React.JSX.Element {
   }, [style, mode]);
 
   /* ── parámetros ── */
-  const [source, setSource] = useState<Source>(() => (read('sp-source') === 'beatport' ? 'beatport' : 'library'));
+  const [source, setSource] = useState<Source>(() => { const v = read('sp-source'); return v === 'beatport' || v === 'tidal' ? v : 'library'; });
   const [library, setLibrary] = useState<StoredLibrary | null>(null);
   const [libBusy, setLibBusy] = useState(false);
   const [libError, setLibError] = useState<string | null>(null);
@@ -66,6 +67,8 @@ export default function App(): React.JSX.Element {
   const [maxPerArtist, setMaxPerArtist] = useState('2');
   const [proxyUrl, setProxyUrl] = useState(read('sp-proxy') ?? '');
   const [builtinProxy, setBuiltinProxy] = useState(false);
+  const [tidalReady, setTidalReady] = useState<boolean | null>(null);
+  const [tidalQuery, setTidalQuery] = useState(read('sp-tidal-q') ?? '');
   const initial = useMemo(loadLlm, []);
   const [llm, setLlm] = useState<LlmSettings>(initial.llm);
   const [remember, setRemember] = useState(initial.remember);
@@ -79,6 +82,8 @@ export default function App(): React.JSX.Element {
   const resultRef = useRef<HTMLElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const preview = usePreview();
+
+  useEffect(() => { if (tidalReady === false && source === 'tidal') setSource('library'); }, [tidalReady, source]);
 
   /* ── biblioteca guardada ── */
   useEffect(() => { void loadLibrary().then((l) => { if (l) setLibrary(l); }); }, []);
@@ -106,9 +111,11 @@ export default function App(): React.JSX.Element {
   useEffect(() => { write('sp-duration', duration); }, [duration]);
   useEffect(() => { write('sp-harm', strictness); }, [strictness]);
   useEffect(() => { write('sp-proxy', proxyUrl); }, [proxyUrl]);
+  useEffect(() => { write('sp-tidal-q', tidalQuery); }, [tidalQuery]);
   useEffect(() => {
     const ctl = new AbortController();
     void probeBuiltinProxy(ctl.signal).then(setBuiltinProxy);
+    void probeTidal(ctl.signal).then(setTidalReady);
     return () => ctl.abort();
   }, []);
   useEffect(() => {
@@ -198,6 +205,13 @@ export default function App(): React.JSX.Element {
         raw = libGenre === 'all' ? library.tracks : library.tracks.filter((t) => t.genre === libGenre);
         if (!raw.length) { setError({ message: 'No hay temas de ese género en tu biblioteca. Elige otro género o «Todos los géneros».' }); return; }
         sourceNote = `Temas de tu biblioteca (${library.name}). Los previews se buscan en Deezer y Apple Music, y solo se reproducen si coinciden con el tema.`;
+      } else if (source === 'tidal') {
+        const term = tidalQuery.trim() || genre.label;
+        const pool = await loadTidalPool(term, { signal: ctl.signal, onStatus: setStatus });
+        raw = pool.tracks;
+        via = 'tidal';
+        fetchedAt = pool.fetchedAt;
+        sourceNote = `Temas de Tidal para «${term}», con el BPM y la tonalidad de Tidal. Los previews se buscan en Deezer y Apple Music, y solo se reproducen si coinciden con el tema.`;
       } else {
         const g = GENRES.find((x) => x.id === genreId) ?? GENRES[0];
         const chart = await loadChart(chartUrl(g), proxyUrl, llm, { signal: ctl.signal, onStatus: setStatus });
@@ -238,7 +252,7 @@ export default function App(): React.JSX.Element {
       setBusy(false);
       setStatus('');
     }
-  }, [busy, durError, segments, maxPerArtist, source, library, libGenre, genreId, proxyUrl, llm, pinned, genre, slots, strictness, durNum, preview]);
+  }, [busy, durError, segments, maxPerArtist, source, library, libGenre, genreId, proxyUrl, tidalQuery, llm, pinned, genre, slots, strictness, durNum, preview]);
 
   /* Ctrl/Cmd + Enter genera el set; Esc detiene el preview. */
   useEffect(() => {
@@ -305,7 +319,7 @@ export default function App(): React.JSX.Element {
               <h2>Fuente de temas</h2>
               <Segmented
                 legend="Fuente" hideLegend value={source} onChange={setSource}
-                options={[{ value: 'library', label: 'Mi biblioteca' }, { value: 'beatport', label: 'Lista de Beatport' }]}
+                options={[{ value: 'library', label: 'Mi biblioteca' }, { value: 'beatport', label: 'Lista de Beatport' }, ...(tidalReady ? [{ value: 'tidal' as const, label: 'Tidal' }] : [])]}
               />
               {source === 'library' ? (
                 <>
@@ -322,15 +336,24 @@ export default function App(): React.JSX.Element {
                 </>
               ) : (
                 <>
-                  <Field id="bp-genre" label="Género (lista Top 100)" hint="Los temas, el BPM y la tonalidad salen de la lista de Beatport de ese género.">
+                  <Field
+                    id="bp-genre" label={source === 'tidal' ? 'Género (rango de BPM)' : 'Género (lista Top 100)'}
+                    hint={source === 'tidal' ? 'Define la curva de BPM y energía por defecto del set.' : 'Los temas, el BPM y la tonalidad salen de la lista de Beatport de ese género.'}
+                  >
                     {(a) => (
                       <select id={a.id} aria-describedby={a.describedBy} value={genreId} onChange={(e) => setGenreId(e.target.value)}>
                         {GENRES.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
                       </select>
                     )}
                   </Field>
-                  {!proxyUrl.trim() && !builtinProxy && llm.provider === 'none' && (
-                    <p className="msg warn">Esta web no incluye el lector de Beatport (solo en Cloudflare Pages). Configura tu propio proxy en «Avanzado» o usa tu biblioteca.</p>
+                  {source === 'tidal' ? (
+                    <Field id="tidal-q" label="Búsqueda en Tidal" hint={`Un género, un sello o un artista. Si lo dejas vacío se busca «${genre.label}». BPM y tonalidad vienen de Tidal.`}>
+                      {(a) => <input id={a.id} aria-describedby={a.describedBy} autoCapitalize="off" value={tidalQuery} onChange={(e) => setTidalQuery(e.target.value)} />}
+                    </Field>
+                  ) : (
+                    !proxyUrl.trim() && !builtinProxy && llm.provider === 'none' && (
+                      <p className="msg warn">Esta web no incluye el lector de Beatport (solo en Cloudflare Pages). Configura tu propio proxy en «Avanzado» o usa tu biblioteca.</p>
+                    )
                   )}
                 </>
               )}

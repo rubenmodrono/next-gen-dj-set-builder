@@ -18,7 +18,7 @@ export interface Result {
   pinnedSlots: number[];
   title: string;
   sourceNote: string;
-  via: ChartVia | 'library';
+  via: ChartVia | 'library' | 'tidal';
   fetchedAt: number;
 }
 
